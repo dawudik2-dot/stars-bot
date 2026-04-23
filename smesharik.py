@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ============ КОНФИГ ============
-BOT_TOKEN = "8525639046:AAHkvyl8mKqCcjFAGuVS0hXDokgHzunbA3s"
+BOT_TOKEN = "8525639046:AAHBYZFChavbYc0lb7IqYI8yhrjO1poS6GI"
 ADMIN_IDS = [6934521331]
 WITHDRAW_CHANNEL = -1003845727627
 
