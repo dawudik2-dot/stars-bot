@@ -134,14 +134,7 @@ def register_user(user_id, username, first_name, referrer_id=None):
         c.execute("INSERT INTO users (user_id,username,first_name,referrer_id,join_date,last_activity) VALUES (?,?,?,?,?,?)",
                   (user_id, username or "unknown", first_name or "User",
                    referrer_id, datetime.now().isoformat(), datetime.now().isoformat()))
-        if referrer_id and referrer_id != user_id:
-            c.execute("UPDATE users SET balance=balance+2, total_earned=total_earned+2 WHERE user_id=?", (referrer_id,))
-            conn.commit()
-            try:
-                bot.send_message(referrer_id,
-                    f"🎉 По вашей реферальной ссылке зарегистрировался новый пользователь!\n"
-                    f"💫 Вам начислено: +2.00 ⭐")
-            except: pass
+        # Реферал засчитывается только после подписки на спонсоров
         log_action(user_id, "register", f"referrer={referrer_id}")
     else:
         c.execute("UPDATE users SET last_activity=? WHERE user_id=?",
@@ -301,7 +294,7 @@ def start(message):
     vip, _ = is_vip(user_id)
     vip_badge = " 💎" if vip else ""
     bot.send_message(message.chat.id,
-        f"✨ *Добро пожаловать в Smesharik StarBoost!*{vip_badge}\n\n"
+        f"✨ *Добро пожаловать в StarElite!*{vip_badge}\n\n"
         f"┌─────────────────────\n"
         f"│ 👋 Привет, *{first_name}*!\n"
         f"│ ⭐ Зарабатывай звёзды и выводи их!\n"
@@ -368,6 +361,22 @@ def handle_cb(call):
                 call.message.chat.id, call.message.message_id,
                 parse_mode="Markdown", reply_markup=kb)
         else:
+            # Начисляем реферал только после подписки на спонсоров
+            u_ref = get_user(user_id)
+            if u_ref and u_ref[4]:
+                conn_ref = db()
+                c_ref = conn_ref.cursor()
+                c_ref.execute("SELECT COUNT(*) FROM logs WHERE user_id=? AND action='ref_counted'", (user_id,))
+                already = c_ref.fetchone()[0]
+                conn_ref.close()
+                if not already and u_ref[4] != user_id:
+                    add_stars(u_ref[4], 2)
+                    log_action(user_id, 'ref_counted', f'referrer={u_ref[4]}')
+                    try:
+                        bot.send_message(u_ref[4],
+                            f"🎉 По вашей ссылке подписался новый пользователь!\n"
+                            f"💫 Начислено: +2.00 ⭐")
+                    except: pass
             bot.edit_message_text(
                 "✅ *Отлично! Все подписки подтверждены!*\n\nДобро пожаловать!",
                 call.message.chat.id, call.message.message_id,
@@ -534,13 +543,4 @@ def handle_cb(call):
             InlineKeyboardButton("🎲 Кости", callback_data="game_dice")
         )
         kb.add(InlineKeyboardButton("🪙 Монетка", callback_data="game_coin"))
-        kb.add(InlineKeyboardButton("◀️ Назад", callback_data="menu"))
-        bot.edit_message_text(
-            f"┌─────────────────────\n"
-            f"│ 🎮 *Мини-игры*\n"
-            f"└─────────────────────\n\n"
-            f"🎰 *Слоты* — 3 одинаковых = x3\n"
-            f"🎲 *Кости* — угадай больше/меньше 3 = x2\n"
-            f"🪙 *Монетка* — орёл/решка = x2\n\n"
-            f"💡 *Минимальная ставка:* 0.1 ⭐\n"
-            f"📊 *Шанс выиграть:* 35%"
+    
